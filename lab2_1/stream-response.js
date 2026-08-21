@@ -1,9 +1,12 @@
 import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
 
+// Sets the exit code rather than calling process.exit(), which on Windows can
+// trip a libuv assertion if it fires while the stream's handles are still
+// closing (and loses the real exit code in the process).
 function fail(message) {
   console.error(`Error: ${message}`);
-  process.exit(1);
+  process.exitCode = 1;
 }
 
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -12,12 +15,14 @@ if (!process.env.ANTHROPIC_API_KEY) {
       "Create a .env file next to this script containing:\n" +
       "  ANTHROPIC_API_KEY=sk-ant-...",
   );
+  process.exit(1);
 }
 
 const client = new Anthropic();
 
+let stream;
 try {
-  const stream = client.messages.stream({
+  stream = client.messages.stream({
     model: "claude-sonnet-5",
     max_tokens: 1024,
     // Thinking off so text starts arriving immediately instead of after a
@@ -45,6 +50,8 @@ try {
     `Usage: input_tokens=${message.usage.input_tokens} output_tokens=${message.usage.output_tokens}`,
   );
 } catch (error) {
+  stream?.abort(); // release the request's handles before we report and exit
+
   if (error instanceof Anthropic.AuthenticationError) {
     fail("ANTHROPIC_API_KEY was rejected by the API — check the key value.");
   } else if (error instanceof Anthropic.RateLimitError) {
