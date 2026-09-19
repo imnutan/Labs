@@ -1,0 +1,6 @@
+
+> chat-agent@1.0.0 start
+> node server.js
+
+◇ injected env (5) from .env
+Shopify chat backend listening on port 3000
